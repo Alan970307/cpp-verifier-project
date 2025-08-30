@@ -1,0 +1,12 @@
+diff --git a/calculator.cpp b/calculator.cpp
+index 62a47d5..169abff 100644
+--- a/calculator.cpp
++++ b/calculator.cpp
+@@ -6,5 +6,5 @@ int Calculator::add(int a, int b) {
+ 
+ // 这里有一个故意的Bug！减法实现成了加法。
+ int Calculator::subtract(int a, int b) {
+-    return a + b; 
++    return a - b; 
+ }
+\ No newline at end of file

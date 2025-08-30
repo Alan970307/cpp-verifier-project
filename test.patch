@@ -1,0 +1,14 @@
+diff --git a/main.cpp b/main.cpp
+index 6c60e64..70c9f81 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -11,4 +11,8 @@ protected:
+ TEST_F(CalculatorTest, TestAdd) {
+     EXPECT_EQ(calc.add(2, 3), 5);
+     EXPECT_EQ(calc.add(-1, 1), 0);
++}
++// 新增：专门测试减法功能的用例
++TEST_F(CalculatorTest, TestSubtract) {
++    EXPECT_EQ(calc.subtract(5, 3), 2); // 这个测试会因为Bug而失败
+ }
+\ No newline at end of file

@@ -9,17 +9,12 @@ def run_command(command):
     """
     print(f"--- Running command: {' '.join(command)} ---")
     result = subprocess.run(command, capture_output=True, text=True)
-    
     if result.returncode != 0:
         print(f"!!! ERROR: Command failed with return code {result.returncode}")
-        print("--- stderr ---")
-        print(result.stderr)
-        print("--- stdout ---")
-        print(result.stdout)
+        print("--- stderr ---\n" + result.stderr)
         return False
     else:
         print("--- Command executed successfully ---")
-        # print(result.stdout) # 如果需要，可以取消这行注释来查看成功命令的输出
         return True
 
 def build_and_test():
@@ -28,77 +23,71 @@ def build_and_test():
     返回测试程序的退出代码（0代表成功，非0代表失败）。
     """
     build_dir = "build"
-    # 创建构建目录，-p选项表示如果目录已存在也不会报错
+    # 创建构建目录
     if not run_command(["mkdir", "-p", build_dir]): return -1 
-    
     # 运行CMake来配置项目
     if not run_command(["cmake", "-S", ".", "-B", build_dir]): return -1 
-    
-    # 运行make（或等效的构建命令）来编译项目
+    # 编译项目
     if not run_command(["cmake", "--build", build_dir]): return -1 
     
-    # 运行编译出的测试程序
     test_executable = os.path.join(build_dir, "run_tests")
     print(f"--- Running tests: {test_executable} ---")
     test_result = subprocess.run([test_executable], capture_output=True, text=True)
-    
-    # 打印测试结果
-    print("--- Test Output ---")
-    print(test_result.stdout)
-    if test_result.returncode != 0:
-        print("--- Tests FAILED ---")
-    else:
-        print("--- ALL Tests PASSED ---")
-        
+    print("--- Test Output ---\n" + test_result.stdout)
     return test_result.returncode
 
 def main():
     """主逻辑函数"""
+    # [修改] 问题五：明确FAIL_TO_PASS和PASS_TO_PASS的逻辑
     report = {
-        "project": "C++ Calculator Sample",
-        "verification_status": "PENDING",
-        "steps": []
+        "FAIL_TO_PASS": {"status": "PENDING", "details": ""},
+        "PASS_TO_PASS": {"status": "SKIPPED", "details": "PASS_TO_PASS test not implemented in this scenario."}
     }
 
-    # --- 阶段1: 应用测试补丁并验证测试是否如预期般失败 ---
-    print("\n=== STAGE 1: Applying test.patch and expecting failure ===\n")
-    if not run_command(["patch", "main.cpp", "test.patch"]):
-        report["verification_status"] = "ERROR: Failed to apply test.patch"
+    # --- FAIL_TO_PASS 阶段 ---
+    print("\n=== STAGE: FAIL_TO_PASS Verification ===\n")
+    
+    # 1. 应用测试补丁
+    # [修改] 问题三：使用 git apply
+    if not run_command(["git", "apply", "/testbed/test.patch"]):
+        report["FAIL_TO_PASS"]["status"] = "ERROR"
+        report["FAIL_TO_PASS"]["details"] = "Failed to apply test.patch"
         return report
-    
-    report["steps"].append("Applied test.patch successfully.")
-    
-    test_return_code_before_fix = build_and_test()
-    if test_return_code_before_fix == 0:
-        report["verification_status"] = "FAILED: Tests passed BEFORE the code fix. The test patch is likely ineffective."
-        return report
-    
-    report["steps"].append("Tests correctly FAILED before the code fix.")
 
-    # --- 阶段2: 应用代码修复补丁并验证测试是否通过 ---
-    print("\n=== STAGE 2: Applying code.patch and expecting success ===\n")
-    if not run_command(["patch", "calculator.cpp", "code.patch"]):
-        report["verification_status"] = "ERROR: Failed to apply code.patch"
+    # 2. 运行测试，预期失败 (FAIL)
+    if build_and_test() == 0:
+        report["FAIL_TO_PASS"]["status"] = "FAILED"
+        report["FAIL_TO_PASS"]["details"] = "Test passed unexpectedly before applying the code fix."
         return report
         
-    report["steps"].append("Applied code.patch successfully.")
-    
-    test_return_code_after_fix = build_and_test()
-    if test_return_code_after_fix != 0:
-        report["verification_status"] = "FAILED: Tests still failed AFTER the code fix."
+    print("\n--- Correctly FAILED before fix ---")
+
+    # 3. 应用代码修复补丁
+    if not run_command(["git", "apply", "/testbed/code.patch"]):
+        report["FAIL_TO_PASS"]["status"] = "ERROR"
+        report["FAIL_TO_PASS"]["details"] = "Failed to apply code.patch"
         return report
 
-    report["steps"].append("Tests correctly PASSED after the code fix.")
+    # 4. 运行测试，预期成功 (PASS)
+    if build_and_test() != 0:
+        report["FAIL_TO_PASS"]["status"] = "FAILED"
+        report["FAIL_TO_PASS"]["details"] = "Test still failed after applying the code fix."
+        return report
+
+    print("\n--- Correctly PASSED after fix ---")
     
-    # --- 结论 ---
-    print("\n=== Verification successful! ===\n")
-    report["verification_status"] = "SUCCESS"
+    report["FAIL_TO_PASS"]["status"] = "SUCCESS"
+    report["FAIL_TO_PASS"]["details"] = "Test correctly failed before the fix and passed after the fix."
+    
     return report
 
 if __name__ == "__main__":
+    # 关于问题四的说明：
+    # 这里的 code.patch 和 test.patch 是我们为演示而制作的。
+    # 在实际任务中，应使用项目方提供的、真实的标注文件。
     final_report = main()
-    # 将最终报告写入JSON文件
-    with open("report.json", "w") as f:
+    # [修改] 将报告文件也输出到 /testbed 目录，这样我们在本地才能看到它
+    with open("/testbed/report.json", "w") as f:
         json.dump(final_report, f, indent=4)
     
     print("\n--- Final Report ---")
